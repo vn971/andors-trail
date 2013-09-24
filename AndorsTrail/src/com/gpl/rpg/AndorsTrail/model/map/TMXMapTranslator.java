@@ -47,8 +47,18 @@ public final class TMXMapTranslator {
 
 			final Size mapSize = new Size(m.width, m.height);
 			ArrayList<MapObject> mapObjects = new ArrayList<MapObject>();
+			ArrayList<MapObjectReplace> mapObjectReplaces = new ArrayList<MapObjectReplace>();
 			ArrayList<MonsterSpawnArea> spawnAreas = new ArrayList<MonsterSpawnArea>();
 
+			ArrayList<String> objectGroupsNames = null;
+			if (AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA) {
+				objectGroupsNames = new ArrayList<String>();
+				for (TMXObjectGroup group : m.objectGroups) {
+					objectGroupsNames.add(group.name);
+				}
+			}
+			ArrayList<String> objectsGroupsToDisable = new ArrayList<String>();
+			
 			for (TMXObjectGroup group : m.objectGroups) {
 				for (TMXObject object : group.objects) {
 					final CoordRect position = getTMXObjectPosition(object, m);
@@ -62,7 +72,7 @@ public final class TMXMapTranslator {
 						for (TMXProperty p : object.properties) {
 							if (AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA) L.log("OPTIMIZE: Map " + m.name + ", sign " + object.name + "@" + topLeft.toString() + " has unrecognized property \"" + p.name + "\".");
 						}
-						mapObjects.add(MapObject.createMapSignEvent(position, phraseID));
+						mapObjects.add(MapObject.createMapSignEvent(position, phraseID, group.name));
 					} else if (object.type.equalsIgnoreCase("mapchange")) {
 						String map = null;
 						String place = null;
@@ -71,7 +81,7 @@ public final class TMXMapTranslator {
 							else if(p.name.equalsIgnoreCase("place")) place = p.value;
 							else if(AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA) L.log("OPTIMIZE: Map " + m.name + ", mapchange " + object.name + "@" + topLeft.toString() + " has unrecognized property \"" + p.name + "\".");
 						}
-						mapObjects.add(MapObject.createNewMapEvent(position, object.name, map, place));
+						mapObjects.add(MapObject.createNewMapEvent(position, object.name, map, place, group.name));
 					} else if (object.type.equalsIgnoreCase("spawn")) {
 						ArrayList<MonsterType> types = monsterTypes.getMonsterTypesFromSpawnGroup(object.name);
 						int maxQuantity = 1;
@@ -110,6 +120,7 @@ public final class TMXMapTranslator {
 								,new Range(1000, spawnChance)
 								,monsterTypeIDs
 								,isUnique
+								,group.name
 						);
 						spawnAreas.add(area);
 					} else if (object.type.equalsIgnoreCase("key")) {
@@ -129,26 +140,86 @@ public final class TMXMapTranslator {
 							}
 						}
 
-						mapObjects.add(MapObject.createNewKeyArea(position, phraseID, requireQuestStage));
+						mapObjects.add(MapObject.createNewKeyArea(position, phraseID, requireQuestStage, group.name));
 					} else if (object.type.equals("rest")) {
-						mapObjects.add(MapObject.createNewRest(position, object.name));
+						mapObjects.add(MapObject.createNewRest(position, object.name, group.name));
 					} else if (object.type.equals("container")) {
 						DropList dropList = dropLists.getDropList(object.name);
 						if (dropList == null) continue;
-						mapObjects.add(MapObject.createNewContainerArea(position, dropList));
+						mapObjects.add(MapObject.createNewContainerArea(position, dropList, group.name));
 					} else if (object.type.equals("replace")) {
-						// Do nothing. Will be handled when reading map layers instead.
+						QuestProgress requireQuestStage = QuestProgress.parseQuestProgress(object.name);
+						if (requireQuestStage == null) {
+							if (AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA) {
+								L.log("OPTIMIZE: Map " + m.name + " contains replace area at " + topLeft.toString() + " that cannot be parsed as a quest stage.");
+							}
+							continue;
+						}
+						//First pass, to find out spawn strategy
+						MapObjectReplace.SpawnStrategy strategy = MapObjectReplace.SpawnStrategy.do_nothing;
+						for (TMXProperty p : object.properties) {
+							if ("spawn_strategy".equals(p.name)) {
+								if ("spawn_all_new".equals(p.value)) {
+									strategy = MapObjectReplace.SpawnStrategy.spawn_all_new; 
+								} else if ("clean_up_all".equals(p.value)){
+									strategy = MapObjectReplace.SpawnStrategy.clean_up_all;
+								} else if (AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA && !"do_nothing".equals(p.value)) {
+									L.log("OPTIMIZE: Map " + m.name + ", replace object " + object.name + "@" + topLeft.toString() + " uses unkown strategy value \"" + p.name + "\".");
+								}
+							}
+						}
+						
+						for (TMXProperty p : object.properties) {
+							// Do nothing when only graphics layers are impacted. Those will be handled in the map rendering.
+							if (!TMXMapTranslator.isGraphicsMapLayer(p.name) && !"spawn_strategy".equals(p.name)) {
+								mapObjectReplaces.add(new MapObjectReplace(position, p.name, p.value, group.name, strategy, requireQuestStage));
+								//Consider all objects/spawns that are part of a group that is a "replace" target as disabled initially.
+								objectsGroupsToDisable.add(p.value);
+								if (AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA) {
+									if (!objectGroupsNames.contains(p.name)) {
+										L.log("OPTIMIZE: Map " + m.name + ", replace object " + object.name + "@" + topLeft.toString() + " tries to replace unkown Object group \"" + p.name + "\".");
+									}
+									if (!objectGroupsNames.contains(p.value)) {
+										L.log("OPTIMIZE: Map " + m.name + ", replace object " + object.name + "@" + topLeft.toString() + " tries to replace by unkown Object group \"" + p.name + "\".");
+									}
+								}
+							}
+						}
 					} else if (AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA) {
 						L.log("OPTIMIZE: Map " + m.name + ", has unrecognized object type \"" + object.type + "\" for name \"" + object.name + "\".");
 					}
 				}
 			}
+			
+			//Disable MapObjects that are part of a replace target group.
+			for (MapObject obj : mapObjects) {
+				if (objectsGroupsToDisable.contains(obj.group)) {
+					obj.isActive = false;
+				}
+			}
+			
+			//Disable MonsterSpawnAreas that are part of a replace target group.
+			for (MonsterSpawnArea area : spawnAreas) {
+				if (objectsGroupsToDisable.contains(area.group)) {
+					area.isActive = false;
+				}
+			}
+			
+			//Heck ! Also disable MapObjectReplaces that are part of a replace target group !
+			for (MapObjectReplace replace : mapObjectReplaces) {
+				if (objectsGroupsToDisable.contains(replace.group)) {
+					replace.isActive = false;
+				}
+			}
+			
 			MapObject[] _eventObjects = new MapObject[mapObjects.size()];
 			_eventObjects = mapObjects.toArray(_eventObjects);
 			MonsterSpawnArea[] _spawnAreas = new MonsterSpawnArea[spawnAreas.size()];
 			_spawnAreas = spawnAreas.toArray(_spawnAreas);
+			MapObjectReplace[] _objectReplaces = new MapObjectReplace[mapObjectReplaces.size()];
+			_objectReplaces = mapObjectReplaces.toArray(_objectReplaces);
 
-			result.add(new PredefinedMap(m.xmlResourceId, m.name, mapSize, _eventObjects, _spawnAreas, isOutdoors));
+			result.add(new PredefinedMap(m.xmlResourceId, m.name, mapSize, _eventObjects, _objectReplaces, _spawnAreas, isOutdoors));
 		}
 
 		return result;
@@ -169,6 +240,9 @@ public final class TMXMapTranslator {
 	private static final String LAYERNAME_ABOVE = "above";
 	private static final String LAYERNAME_WALKABLE = "walkable";
 	private static final SetOfLayerNames defaultLayerNames = new SetOfLayerNames(LAYERNAME_GROUND, LAYERNAME_OBJECTS, LAYERNAME_ABOVE, LAYERNAME_WALKABLE);
+	public static boolean isGraphicsMapLayer(final String groupOrLayerName) {
+		return defaultLayerNames.containsIgnoreCase(groupOrLayerName);
+	}
 
 	private static LayeredTileMap transformMap(TMXLayerMap map, TileCache tileCache) {
 		final Size mapSize = new Size(map.width, map.height);
@@ -210,18 +284,26 @@ public final class TMXMapTranslator {
 						else if (prop.name.equalsIgnoreCase(LAYERNAME_ABOVE)) layerNames.aboveLayersName = prop.value;
 						else if (prop.name.equalsIgnoreCase(LAYERNAME_WALKABLE)) layerNames.walkableLayersName = prop.value;
 						else if (AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA) {
+							// Add a way to filter out map object replacement related properties ? Would need to store the object groups name list, or recreate it...
+							// I thought it would be a waste of memory...
 							L.log("OPTIMIZE: Map " + map.name + " contains replace area with unknown property \"" + prop.name + "\".");
 						}
 					}
-					MapSection replacementSection = transformMapSection(map, tileCache, position, layersPerLayerName, usedTileIDs, layerNames);
-					QuestProgress requireQuestStage = QuestProgress.parseQuestProgress(obj.name);
-					if (requireQuestStage == null) {
-						if (AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA) {
-							L.log("WARNING: Map " + map.name + " contains replace area that cannot be parsed as a quest stage.");
+					//Don't create the Replaceable sections if this replace has no graphics impacts.
+					if (layerNames.aboveLayersName != null 
+							|| layerNames.groundLayerName != null
+							|| layerNames.objectsLayerName != null
+							|| layerNames.walkableLayersName != null) {
+						MapSection replacementSection = transformMapSection(map, tileCache, position, layersPerLayerName, usedTileIDs, layerNames);
+						QuestProgress requireQuestStage = QuestProgress.parseQuestProgress(obj.name);
+						if (requireQuestStage == null) {
+							if (AndorsTrailApplication.DEVELOPMENT_VALIDATEDATA) {
+								L.log("WARNING: Map " + map.name + " contains replace area that cannot be parsed as a quest stage.");
+							}
+							continue;
 						}
-						continue;
+						replaceableSections.add(new ReplaceableMapSection(position, replacementSection, requireQuestStage));
 					}
-					replaceableSections.add(new ReplaceableMapSection(position, replacementSection, requireQuestStage));
 				}
 			}
 		}
@@ -359,6 +441,13 @@ public final class TMXMapTranslator {
 			this.objectsLayerName = objectsLayerName;
 			this.aboveLayersName = aboveLayersName;
 			this.walkableLayersName = walkableLayersName;
+		}
+		public boolean containsIgnoreCase(String s) {
+			if (s == null) return false;
+			return s.equalsIgnoreCase(groundLayerName) ||
+					s.equalsIgnoreCase(objectsLayerName) ||
+					s.equalsIgnoreCase(aboveLayersName) ||
+					s.equalsIgnoreCase(walkableLayersName);
 		}
 	}
 }

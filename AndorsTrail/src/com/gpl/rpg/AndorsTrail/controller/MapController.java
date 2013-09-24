@@ -1,5 +1,8 @@
 package com.gpl.rpg.AndorsTrail.controller;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import android.content.res.Resources;
 import com.gpl.rpg.AndorsTrail.context.ControllerContext;
 import com.gpl.rpg.AndorsTrail.context.WorldContext;
@@ -10,9 +13,13 @@ import com.gpl.rpg.AndorsTrail.model.actor.Monster;
 import com.gpl.rpg.AndorsTrail.model.actor.Player;
 import com.gpl.rpg.AndorsTrail.model.map.LayeredTileMap;
 import com.gpl.rpg.AndorsTrail.model.map.MapObject;
+import com.gpl.rpg.AndorsTrail.model.map.MapObjectReplace;
+import com.gpl.rpg.AndorsTrail.model.map.MonsterSpawnArea;
 import com.gpl.rpg.AndorsTrail.model.map.PredefinedMap;
 import com.gpl.rpg.AndorsTrail.model.map.ReplaceableMapSection;
+import com.gpl.rpg.AndorsTrail.model.quest.QuestProgress;
 import com.gpl.rpg.AndorsTrail.util.Coord;
+import com.gpl.rpg.AndorsTrail.util.L;
 
 public final class MapController {
 
@@ -27,6 +34,8 @@ public final class MapController {
 	}
 
 	public void handleMapEvent(MapObject o, Coord position) {
+		//Area disabled or not yet enabled by "replace" object. 
+		if (!o.isActive) return;
 		switch (o.type) {
 		case sign:
 			if (o.id == null || o.id.length() <= 0) return;
@@ -99,6 +108,8 @@ public final class MapController {
 	}
 
 	public boolean canEnterKeyArea(MapObject area) {
+		//Disabled key areas are always opened !
+		if (!area.isActive) return true;
 		if (world.model.player.hasExactQuestProgress(area.requireQuestProgress)) return true;
 		worldEventListeners.onPlayerSteppedOnKeyArea(area);
 		return false;
@@ -127,16 +138,42 @@ public final class MapController {
 		if (tileMap.replacements != null) {
 			for(ReplaceableMapSection replacement : tileMap.replacements) {
 				if (replacement.isApplied) continue;
-				if (!satisfiesCondition(replacement)) continue;
+				if (!satisfiesCondition(replacement.requireQuestStage)) continue;
 				tileMap.applyReplacement(replacement);
 				hasUpdated = true;
+			}
+		}
+		
+		List<MonsterSpawnArea> triggerSpawn = null;
+		if (map.eventObjectReplaces != null) {
+			for (MapObjectReplace replace : map.eventObjectReplaces) {
+				if (replace.isApplied || !replace.isActive) continue;
+				if (!satisfiesCondition(replace.questProgress)) continue;
+				triggerSpawn = map.applyObjectReplace(replace);
+				hasUpdated = true;
+			}
+		}
+		
+		if (triggerSpawn != null) {
+			L.log("CODER HELP : "+triggerSpawn.size()+" spawnareas impacted.");
+			for (MonsterSpawnArea area : triggerSpawn) {
+				if (area.isActive) {
+					L.log("CODER HELP : Spawning all in area from group "+area.group+" with "+area.quantity.max+" max NPCs.");
+					controllers.monsterSpawnController.spawnAllInArea(map, tileMap, area, false);
+				} else {
+					L.log("CODER HELP : Removing all NPCs in area from group "+area.group+" with "+area.quantity.current+" living NPCs.");
+					List<Monster> monsters = new ArrayList<Monster>(area.monsters);
+					for (Monster m : monsters) {
+						controllers.monsterSpawnController.remove(map, m);
+					}
+				}
 			}
 		}
 		map.lastSeenLayoutHash = tileMap.getCurrentLayoutHash();
 		return hasUpdated;
 	}
 
-	public boolean satisfiesCondition(ReplaceableMapSection replacement) {
-		return world.model.player.hasExactQuestProgress(replacement.requireQuestStage);
+	public boolean satisfiesCondition(QuestProgress progress) {
+		return world.model.player.hasExactQuestProgress(progress);
 	}
 }
