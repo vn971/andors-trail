@@ -11,6 +11,14 @@ public final class MapObject {
 		,rest
 		,keyarea
 		,container
+		,script
+	}
+
+	public static enum MapObjectEvaluationType {
+		whenEntering
+		,onEveryStep
+		,afterEveryRound
+		,continuously
 	}
 
 	public final CoordRect position;
@@ -21,6 +29,7 @@ public final class MapObject {
 	public final String group;
 	public final QuestProgress requireQuestProgress;
 	public final DropList dropList;
+	public final MapObjectEvaluationType evaluateWhen;
 	public boolean isActive = true;
 
 	private MapObject(
@@ -31,7 +40,9 @@ public final class MapObject {
 			, final String place
 			, final String group
 			, final QuestProgress requireQuestProgress
-			, final DropList dropList) {
+			, final DropList dropList
+			, final MapObjectEvaluationType evaluateWhen
+			) {
 		this.position = new CoordRect(position);
 		this.type = type;
 		this.id = id;
@@ -40,21 +51,25 @@ public final class MapObject {
 		this.group = group;
 		this.requireQuestProgress = requireQuestProgress;
 		this.dropList = dropList;
+		this.evaluateWhen = evaluateWhen;
 	}
 
 	public static MapObject createMapSignEvent(final CoordRect position, final String phraseID, final String group) {
-		return new MapObject(position, MapObjectType.sign, phraseID, null, null, group, null, null);
+		return new MapObject(position, MapObjectType.sign, phraseID, null, null, group, null, null, MapObjectEvaluationType.whenEntering);
 	}
-	public static MapObject createNewMapEvent(final CoordRect position, final String thisMapTitle, final String destinationMap, final String destinationPlace, final String group) {
-		return new MapObject(position, MapObjectType.newmap, thisMapTitle, destinationMap, destinationPlace, group, null, null);
+	public static MapObject createMapChangeArea(final CoordRect position, final String thisMapTitle, final String destinationMap, final String destinationPlace, final String group) {
+		return new MapObject(position, MapObjectType.newmap, thisMapTitle, destinationMap, destinationPlace, group, null, null, MapObjectEvaluationType.whenEntering);
 	}
-	public static MapObject createNewRest(final CoordRect position, final String placeId, final String group) {
-		return new MapObject(position, MapObjectType.rest, placeId, null, null, group, null, null);
+	public static MapObject createRestArea(final CoordRect position, final String placeId, final String group) {
+		return new MapObject(position, MapObjectType.rest, placeId, null, null, group, null, null, MapObjectEvaluationType.whenEntering);
 	}
-	public static MapObject createNewKeyArea(final CoordRect position, final String phraseID, final QuestProgress requireQuestStage, final String group) {
-		return new MapObject(position, MapObjectType.keyarea, phraseID, null, null, group, requireQuestStage, null);
+	public static MapObject createKeyArea(final CoordRect position, final String phraseID, final QuestProgress requireQuestStage, final String group) {
+		return new MapObject(position, MapObjectType.keyarea, phraseID, null, null, group, requireQuestStage, null, MapObjectEvaluationType.whenEntering);
 	}
-	public static MapObject createNewContainerArea(final CoordRect position, final DropList dropList, final String group) {
-		return new MapObject(position, MapObjectType.container, null, null, null, group, null, dropList);
+	public static MapObject createContainerArea(final CoordRect position, final DropList dropList, final String group) {
+		return new MapObject(position, MapObjectType.container, null, null, null, group, null, dropList, MapObjectEvaluationType.whenEntering);
+	}
+	public static MapObject createScriptArea(final CoordRect position, final String phraseID, final MapObjectEvaluationType evaluateWhen, final String group) {
+		return new MapObject(position, MapObjectType.script, phraseID, null, null, group, null, null, evaluateWhen);
 	}
 }
