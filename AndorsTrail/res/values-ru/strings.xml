@@ -364,6 +364,33 @@
 	<string name="skill_longdescription_resistance_physical_capacity">Снижает шансы пострадать от физических воздействий на %1$d %% на каждый уровень навыка, но не более %2$d %%. К таким воздействиям относится, например, усталость.</string>
 	<string name="skill_longdescription_resistance_blood_disorder">Снижает шансы пострадать от воздействий на кровь на %1$d %% на каждый уровень навыка, но не более %2$d %%. К таким воздействиям относятся, например, яд или кровотечение.</string>
 
+	<string name="preferences_quickslots_placement">Позиция слота быстрого доступа</string>
+	<string name="preferences_quickslots_placement_summary">Где показывать слот</string>
+	<string name="preferences_quickslots_placements_horizontal_center_bottom">Снизу в цетре</string>
+	<string name="preferences_quickslots_placements_vertical_center_left">Посередине слева</string>
+	<string name="preferences_quickslots_placements_vertical_center_right">Посередине справа</string>
+	<string name="preferences_quickslots_placements_vertical_bottom_left">Слева-снизу, вдоль левого борта</string>
+	<string name="preferences_quickslots_placements_horizontal_bottom_left">Снизу-слева, вдоль нижнего борта</string>
+	<string name="preferences_quickslots_placements_horizontal_bottom_right">Снизу-справа, вдоль нижнего борта</string>
+	<string name="preferences_quickslots_placements_vertical_bottom_right">Справа-снизу, вдоль правого борта</string>
+
+	<string name="preferences_ui_show_quickslots_when_toolbox_is_visible_title">Показывать слот быстрого доступа при открытии доп.меню</string>
+	<string name="preferences_ui_show_quickslots_when_toolbox_is_visible">Показывать кнопки слотов быстрого доступа сразу при открытии меню</string>
+	<string name="startscreen_incompatible_savegames">Это девелоперская версия Следа Эндора. Игры, сохраняемые данной версией, не будут доступны в релизе игры.</string>
+	<string name="startscreen_non_release_version">Это пред-релизная версия Следа Эндора. Игры, сохраняемые данной версией, могут быть не доступны в релизе игры.</string>
+	<string name="heroinfo_gamestats">Статистика игры</string>
+	<string name="heroinfo_gamestats_quests">Выполнено заданий</string>
+	<string name="heroinfo_gamestats_deaths">Потеря сознания</string>
+	<string name="heroinfo_gamestats_spent_gold">Золота потрачено в магазинах</string>
+	<string name="heroinfo_gamestats_bonemeals">Выпитых зелий костяной муки</string>
+	<string name="heroinfo_gamestats_num_used_items">Использовано зелий</string>
+	<string name="heroinfo_gamestats_visited_maps">Мест посещено</string>
+	<string name="heroinfo_gamestats_fav_item">Самое частоиспользуемое зелье</string>
+	<string name="heroinfo_gamestats_num_killed_monsters">Убито монстров</string>
+	<string name="heroinfo_gamestats_top_boss">Самый могущественный поверженный монстр</string>
+	<string name="heroinfo_gamestats_fav_monsters">Наиболее часто убиваемый монстр</string>
+	<string name="heroinfo_gamestats_name_and_qty">%1$s (%2$d)</string>
+
 	<string name="skillinfo_action_levelup">Повышение уровня</string>
 	<string name="skill_current_level">Текущий уровень: %1$d</string>
 	<string name="skill_current_level_with_maximum">Текущий уровень: %1$d / %2$d</string>
